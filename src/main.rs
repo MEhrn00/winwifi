@@ -1,3 +1,10 @@
+use clap::Parser;
+
+mod argparse;
+mod network;
+mod profile;
+
 fn main() {
-    println!("Hello, world!");
+    let winwifi = argparse::ProgramArguments::parse();
+    winwifi.handle_arguments();
 }
