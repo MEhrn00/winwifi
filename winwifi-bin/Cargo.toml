@@ -1,0 +1,21 @@
+[package]
+name = "winwifi-bin"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+description.workspace = true
+license.workspace = true
+
+
+[[bin]]
+name = "winwifi"
+path = "src/main.rs"
+doc = false
+
+[dependencies.winwifi]
+path = ".."
+
+[dependencies.clap]
+version = "4.4.18"
+features = ["derive"]
