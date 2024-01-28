@@ -1,24 +1,45 @@
 use std::{ffi::OsString, marker::PhantomData, os::windows::ffi::OsStringExt, ptr::NonNull};
 
-use windows::Win32::NetworkManagement::WiFi::{
-    wlan_interface_state_ad_hoc_network_formed, wlan_interface_state_associating,
-    wlan_interface_state_authenticating, wlan_interface_state_connected,
-    wlan_interface_state_disconnected, wlan_interface_state_disconnecting,
-    wlan_interface_state_discovering, wlan_interface_state_not_ready, WlanFreeMemory,
-    WLAN_INTERFACE_INFO, WLAN_INTERFACE_INFO_LIST, WLAN_INTERFACE_STATE,
+use windows::Win32::{
+    Foundation::WIN32_ERROR,
+    NetworkManagement::WiFi::{
+        wlan_interface_state_ad_hoc_network_formed, wlan_interface_state_associating,
+        wlan_interface_state_authenticating, wlan_interface_state_connected,
+        wlan_interface_state_disconnected, wlan_interface_state_disconnecting,
+        wlan_interface_state_discovering, wlan_interface_state_not_ready, WlanEnumInterfaces,
+        WlanFreeMemory, WLAN_INTERFACE_INFO, WLAN_INTERFACE_INFO_LIST, WLAN_INTERFACE_STATE,
+    },
 };
 
-use crate::guid::GuidRef;
+use crate::{
+    errors::WinWifiError, guid::GuidRef, handle::WlanHandle, profiles::WlanInterfaceProfiles,
+};
 
+/// A wireless interface state
 #[repr(i32)]
 pub enum WlanInterfaceState {
+    /// Wireless interface is not ready
     NotReady = wlan_interface_state_not_ready.0,
+
+    /// Wireless interface is connected
     Connected = wlan_interface_state_connected.0,
+
+    /// An AD HOC network is formed on the wireless interface
     AdHocNetworkFormed = wlan_interface_state_ad_hoc_network_formed.0,
+
+    /// Wireless interface is currently disconnecting
     Disconnecting = wlan_interface_state_disconnecting.0,
+
+    /// Wireless interface is disconnected
     Disconnected = wlan_interface_state_disconnected.0,
+
+    /// Wireless interface is currently associating
     Associating = wlan_interface_state_associating.0,
+
+    /// Wireless interface is currently discovering
     Discovering = wlan_interface_state_discovering.0,
+
+    /// Wireless interface is currently authenticating
     Authenticating = wlan_interface_state_authenticating.0,
 }
 
@@ -40,17 +61,34 @@ impl From<WLAN_INTERFACE_STATE> for WlanInterfaceState {
 }
 
 /// List of wireless interfaces
-#[repr(transparent)]
-pub struct WlanInterfaces {
+pub struct WlanInterfaces<'handle> {
+    handle: &'handle WlanHandle,
     interface_list_ptr: NonNull<WLAN_INTERFACE_INFO_LIST>,
-    _marker: PhantomData<WLAN_INTERFACE_INFO_LIST>,
+    _interface_list_marker: PhantomData<WLAN_INTERFACE_INFO_LIST>,
 }
 
-impl WlanInterfaces {
-    pub(crate) unsafe fn from_raw(interface_list: *mut WLAN_INTERFACE_INFO_LIST) -> WlanInterfaces {
-        Self {
-            interface_list_ptr: NonNull::new_unchecked(interface_list),
-            _marker: PhantomData,
+impl<'handle> WlanInterfaces<'handle> {
+    pub fn new(handle: &'handle WlanHandle) -> Result<WlanInterfaces<'handle>, WinWifiError> {
+        let mut interface_list_ptr = std::ptr::null_mut();
+        WIN32_ERROR(unsafe { WlanEnumInterfaces(*handle.as_ptr(), None, &mut interface_list_ptr) })
+            .ok()?;
+
+        Ok(WlanInterfaces {
+            handle,
+            interface_list_ptr: unsafe { NonNull::new_unchecked(interface_list_ptr) },
+            _interface_list_marker: PhantomData,
+        })
+    }
+
+    #[allow(unused)]
+    pub(crate) unsafe fn from_raw(
+        handle: &'handle WlanHandle,
+        interface_list_ptr: *mut WLAN_INTERFACE_INFO_LIST,
+    ) -> WlanInterfaces<'handle> {
+        WlanInterfaces {
+            handle,
+            interface_list_ptr: NonNull::new_unchecked(interface_list_ptr),
+            _interface_list_marker: PhantomData,
         }
     }
 
@@ -60,42 +98,45 @@ impl WlanInterfaces {
     }
 
     /// Returns an iterator over the wireless interfaces
-    pub fn iter<'interfaces>(&'interfaces self) -> WlanInterfacesIterator<'interfaces> {
-        let interfaces =
-            unsafe { std::ptr::addr_of!((*self.interface_list_ptr.as_ptr()).InterfaceInfo[0]) };
-
+    pub fn iter<'interfaces>(&'interfaces self) -> WlanInterfacesIterator<'handle, 'interfaces>
+    where
+        'handle: 'interfaces,
+    {
         WlanInterfacesIterator {
             interface_list: self,
-            interface_ptr: interfaces,
             index: 0,
-            _marker: PhantomData,
         }
     }
 }
 
-impl Drop for WlanInterfaces {
+impl<'handle> Drop for WlanInterfaces<'_> {
     fn drop(&mut self) {
         unsafe { WlanFreeMemory(self.interface_list_ptr.as_ptr().cast()) };
     }
 }
 
 /// Iterator over the list of wireless interfaces
-pub struct WlanInterfacesIterator<'interfaces> {
-    interface_list: &'interfaces WlanInterfaces,
-    // Save a pointer to the current interface in the iterator so that the base interface list does not need to be dereferenced every iteration
-    interface_ptr: *const WLAN_INTERFACE_INFO,
+pub struct WlanInterfacesIterator<'handle: 'interfaces, 'interfaces> {
+    interface_list: &'interfaces WlanInterfaces<'handle>,
     index: usize,
-    _marker: PhantomData<&'interfaces WLAN_INTERFACE_INFO>,
 }
 
-impl<'interfaces> Iterator for WlanInterfacesIterator<'interfaces> {
-    type Item = WlanInterface<'interfaces>;
+impl<'handle: 'interfaces, 'interfaces> Iterator for WlanInterfacesIterator<'handle, 'interfaces> {
+    type Item = WlanInterface<'handle, 'interfaces>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.interface_list.len() {
+            let next_interface_ptr = unsafe {
+                std::ptr::addr_of!(
+                    (*(*self).interface_list.interface_list_ptr.as_ptr()).InterfaceInfo[0]
+                )
+                .add(1)
+            };
+
             let interface = WlanInterface {
-                interface_ptr: self.interface_ptr,
-                _marker: PhantomData,
+                handle: self.interface_list.handle,
+                interface_ptr: next_interface_ptr,
+                _interface_marker: PhantomData,
             };
 
             self.index += 1;
@@ -107,23 +148,25 @@ impl<'interfaces> Iterator for WlanInterfacesIterator<'interfaces> {
     }
 }
 
-impl<'interfaces> ExactSizeIterator for WlanInterfacesIterator<'_> {
+impl<'handle: 'interfaces, 'interfaces> ExactSizeIterator for WlanInterfacesIterator<'_, '_> {
     fn len(&self) -> usize {
         self.interface_list.len()
     }
 }
 
-#[repr(transparent)]
-pub struct WlanInterface<'interface> {
+pub struct WlanInterface<'handle: 'interfaces, 'interfaces> {
+    pub(crate) handle: &'handle WlanHandle,
     interface_ptr: *const WLAN_INTERFACE_INFO,
-    _marker: PhantomData<&'interface WLAN_INTERFACE_INFO>,
+    _interface_marker: PhantomData<&'interfaces WLAN_INTERFACE_INFO>,
 }
 
-impl<'interface> WlanInterface<'interface> {
-    pub fn guid(&self) -> GuidRef<'interface> {
-        GuidRef::from_ptr(unsafe { std::ptr::addr_of!((*self.interface_ptr).InterfaceGuid) })
+impl<'handle: 'interfaces, 'interfaces> WlanInterface<'handle, 'interfaces> {
+    /// Returns the interface GUID
+    pub fn guid(&self) -> GuidRef<'interfaces> {
+        unsafe { GuidRef::from_ptr(std::ptr::addr_of!((*self.interface_ptr).InterfaceGuid)) }
     }
 
+    /// Returns the description of the interface
     pub fn description(&self) -> Option<OsString> {
         let null_index = unsafe { *self.interface_ptr }
             .strInterfaceDescription
@@ -133,6 +176,19 @@ impl<'interface> WlanInterface<'interface> {
         Some(OsString::from_wide(
             &unsafe { (*self.interface_ptr).strInterfaceDescription }[..null_index],
         ))
+    }
+
+    /// Returns the state of the interface
+    // TODO: Write test
+    pub fn if_state(&self) -> WlanInterfaceState {
+        unsafe { *self.interface_ptr }.isState.into()
+    }
+
+    /// Get the saved profiles associated with this interface
+    pub fn profiles(
+        &'interfaces self,
+    ) -> Result<WlanInterfaceProfiles<'handle, 'interfaces>, WinWifiError> {
+        WlanInterfaceProfiles::new(self)
     }
 }
 
@@ -156,10 +212,13 @@ mod tests {
             InterfaceInfo: [WLAN_INTERFACE_INFO::default()],
         };
 
+        let handle = WlanHandle::new_invalid();
+
         // Create the interface list. Ensure that the list doesn't get Dropped since
         // the interface list is being allocated on the stack and not from the Windows API
-        let interface_list =
-            ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
+        let interface_list = ManuallyDrop::new(unsafe {
+            WlanInterfaces::from_raw(&handle, &mut raw_interface_list)
+        });
 
         // Make sure the returned length matches the correct length
         assert_eq!(
@@ -184,9 +243,12 @@ mod tests {
         // Pointer to the mock interface
         let test_interface_ptr = std::ptr::addr_of!(raw_interface_list.InterfaceInfo[0]);
 
+        let handle = WlanHandle::new_invalid();
+
         // Create an interface list
-        let interface_list =
-            ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
+        let interface_list = ManuallyDrop::new(unsafe {
+            WlanInterfaces::from_raw(&handle, &mut raw_interface_list)
+        });
 
         // Get the first interface in the interface list
         let interface_list_first = interface_list
@@ -214,9 +276,12 @@ mod tests {
             InterfaceInfo: [WLAN_INTERFACE_INFO::default()],
         };
 
+        let handle = WlanHandle::new_invalid();
+
         // Interface list
-        let interface_list =
-            ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
+        let interface_list = ManuallyDrop::new(unsafe {
+            WlanInterfaces::from_raw(&handle, &mut raw_interface_list)
+        });
 
         let mut list_iter = interface_list.iter();
 
@@ -242,8 +307,11 @@ mod tests {
             InterfaceInfo: [WLAN_INTERFACE_INFO::default()],
         };
 
-        let interface_list =
-            ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
+        let handle = WlanHandle::new_invalid();
+
+        let interface_list = ManuallyDrop::new(unsafe {
+            WlanInterfaces::from_raw(&handle, &mut raw_interface_list)
+        });
 
         // There should not be anything in the list
         assert!(
@@ -271,8 +339,11 @@ mod tests {
             }],
         };
 
-        let interface_list =
-            ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
+        let handle = WlanHandle::new_invalid();
+
+        let interface_list = ManuallyDrop::new(unsafe {
+            WlanInterfaces::from_raw(&handle, &mut raw_interface_list)
+        });
 
         let first_interface = interface_list
             .iter()
@@ -317,8 +388,10 @@ mod tests {
             }],
         };
 
-        let interface_list =
-            ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
+        let handle = WlanHandle::new_invalid();
+        let interface_list = ManuallyDrop::new(unsafe {
+            WlanInterfaces::from_raw(&handle, &mut raw_interface_list)
+        });
 
         let first_interface = interface_list
             .iter()
