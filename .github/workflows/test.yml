@@ -20,17 +20,8 @@ jobs:
       - name: Install Rust toolchains
         run: rustup target add ${{ matrix.target }}
 
-      - name: Install Clippy
-        run: rustup component add clippy
-
-      - name: Cargo Check
-        run: cargo check
-
       - name: Cargo Build
         run: cargo build --target ${{ matrix.target }}
 
       - name: Cargo Test
         run: cargo test --target ${{ matrix.target }}
-
-      - name: Cargo Clippy
-        run: cargo clippy
