@@ -86,7 +86,7 @@ impl<'handle: 'interfaces, 'interfaces: 'profiles, 'profiles> Iterator
         if self.index < self.profiles_list.len() {
             let next_profile_ptr = unsafe {
                 std::ptr::addr_of!((*self.profiles_list.profile_list_ptr.as_ptr()).ProfileInfo[0])
-                    .add(1)
+                    .add(self.index)
             };
 
             let profile = WlanInterfaceProfile {

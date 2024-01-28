@@ -134,7 +134,7 @@ impl<'handle: 'interfaces, 'interfaces> Iterator for WlanInterfacesIterator<'han
                 std::ptr::addr_of!(
                     (*self.interface_list.interface_list_ptr.as_ptr()).InterfaceInfo[0]
                 )
-                .add(1)
+                .add(self.index)
             };
 
             let interface = WlanInterface {
