@@ -1,12 +1,45 @@
-use std::{marker::PhantomData, ptr::NonNull};
+use std::{ffi::OsString, marker::PhantomData, os::windows::ffi::OsStringExt, ptr::NonNull};
 
 use windows::Win32::NetworkManagement::WiFi::{
-    WlanFreeMemory, WLAN_INTERFACE_INFO, WLAN_INTERFACE_INFO_LIST,
+    wlan_interface_state_ad_hoc_network_formed, wlan_interface_state_associating,
+    wlan_interface_state_authenticating, wlan_interface_state_connected,
+    wlan_interface_state_disconnected, wlan_interface_state_disconnecting,
+    wlan_interface_state_discovering, wlan_interface_state_not_ready, WlanFreeMemory,
+    WLAN_INTERFACE_INFO, WLAN_INTERFACE_INFO_LIST, WLAN_INTERFACE_STATE,
 };
 
 use crate::guid::GuidRef;
 
-/// Object for interacting with a list of Windows WLAN interfacs
+#[repr(i32)]
+pub enum WlanInterfaceState {
+    NotReady = wlan_interface_state_not_ready.0,
+    Connected = wlan_interface_state_connected.0,
+    AdHocNetworkFormed = wlan_interface_state_ad_hoc_network_formed.0,
+    Disconnecting = wlan_interface_state_disconnecting.0,
+    Disconnected = wlan_interface_state_disconnected.0,
+    Associating = wlan_interface_state_associating.0,
+    Discovering = wlan_interface_state_discovering.0,
+    Authenticating = wlan_interface_state_authenticating.0,
+}
+
+impl From<WLAN_INTERFACE_STATE> for WlanInterfaceState {
+    #[allow(non_upper_case_globals)]
+    fn from(value: WLAN_INTERFACE_STATE) -> Self {
+        match value {
+            wlan_interface_state_not_ready => Self::NotReady,
+            wlan_interface_state_connected => Self::Connected,
+            wlan_interface_state_ad_hoc_network_formed => Self::AdHocNetworkFormed,
+            wlan_interface_state_disconnecting => Self::Disconnecting,
+            wlan_interface_state_disconnected => Self::Disconnected,
+            wlan_interface_state_associating => Self::Associating,
+            wlan_interface_state_discovering => Self::Discovering,
+            wlan_interface_state_authenticating => Self::Authenticating,
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// List of wireless interfaces
 #[repr(transparent)]
 pub struct WlanInterfaces {
     interface_list_ptr: NonNull<WLAN_INTERFACE_INFO_LIST>,
@@ -21,10 +54,12 @@ impl WlanInterfaces {
         }
     }
 
+    /// Get the number of wireless interfaces in the list
     pub fn len(&self) -> usize {
         unsafe { *self.interface_list_ptr.as_ptr() }.dwNumberOfItems as usize
     }
 
+    /// Returns an iterator over the wireless interfaces
     pub fn iter<'interfaces>(&'interfaces self) -> WlanInterfacesIterator<'interfaces> {
         let interfaces =
             unsafe { std::ptr::addr_of!((*self.interface_list_ptr.as_ptr()).InterfaceInfo[0]) };
@@ -44,8 +79,10 @@ impl Drop for WlanInterfaces {
     }
 }
 
+/// Iterator over the list of wireless interfaces
 pub struct WlanInterfacesIterator<'interfaces> {
     interface_list: &'interfaces WlanInterfaces,
+    // Save a pointer to the current interface in the iterator so that the base interface list does not need to be dereferenced every iteration
     interface_ptr: *const WLAN_INTERFACE_INFO,
     index: usize,
     _marker: PhantomData<&'interfaces WLAN_INTERFACE_INFO>,
@@ -86,11 +123,22 @@ impl<'interface> WlanInterface<'interface> {
     pub fn guid(&self) -> GuidRef<'interface> {
         GuidRef::from_ptr(unsafe { std::ptr::addr_of!((*self.interface_ptr).InterfaceGuid) })
     }
+
+    pub fn description(&self) -> Option<OsString> {
+        let null_index = unsafe { *self.interface_ptr }
+            .strInterfaceDescription
+            .iter()
+            .position(|v| v == &0)?;
+
+        Some(OsString::from_wide(
+            &unsafe { (*self.interface_ptr).strInterfaceDescription }[..null_index],
+        ))
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::mem::ManuallyDrop;
+    use std::{mem::ManuallyDrop, os::windows::ffi::OsStrExt};
 
     use windows::core::GUID;
 
@@ -114,7 +162,13 @@ mod tests {
             ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
 
         // Make sure the returned length matches the correct length
-        assert_eq!(interface_list.len(), TEST_INTERFACE_NUMBER as usize);
+        assert_eq!(
+            interface_list.len(),
+            TEST_INTERFACE_NUMBER as usize,
+            "Expected interface length of '{}' does not match found interface length of '{}'",
+            TEST_INTERFACE_NUMBER,
+            interface_list.len()
+        );
     }
 
     /// Tests that the first wlan interface points to the correct data
@@ -141,7 +195,13 @@ mod tests {
             .expect("Failed to get the first interface");
 
         // The internal interface pointer should point to the interface created above
-        assert_eq!(interface_list_first.interface_ptr, test_interface_ptr);
+        assert_eq!(
+            interface_list_first.interface_ptr,
+            test_interface_ptr,
+            "Expected interface pointer value of '{:x?}' does not match found interface pointer value of '{:x?}'",
+            test_interface_ptr,
+            interface_list_first.interface_ptr
+        );
     }
 
     /// Ensure that the wireless interface iterator stays in bounds
@@ -161,10 +221,16 @@ mod tests {
         let mut list_iter = interface_list.iter();
 
         // This should return a valid interface
-        assert!(list_iter.next().is_some());
+        assert!(
+            list_iter.next().is_some(),
+            "Interface list iterator did not have a first item"
+        );
 
         // This should go out of bounds
-        assert!(list_iter.next().is_none());
+        assert!(
+            list_iter.next().is_none(),
+            "Interface list iterator went out of bounds"
+        );
     }
 
     #[test]
@@ -180,7 +246,10 @@ mod tests {
             ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
 
         // There should not be anything in the list
-        assert!(interface_list.iter().next().is_none());
+        assert!(
+            interface_list.iter().next().is_none(),
+            "Interface list iterator returned a value in a zero sized list"
+        );
     }
 
     /// Checks that the guid returned from the interface is correct
@@ -212,6 +281,60 @@ mod tests {
 
         let interface_guid = first_interface.guid();
 
-        assert_eq!(interface_guid, TEST_GUID);
+        let test_guid_ref = GuidRef::from(&TEST_GUID);
+        assert_eq!(
+            interface_guid,
+            TEST_GUID,
+            "Expected GUID value of '{}' did not match found GUID value of '{}'",
+            test_guid_ref.to_string(),
+            interface_guid.to_string()
+        );
+    }
+
+    /// Checks for a correct interface description
+    #[test]
+    fn correct_interface_description() {
+        const TEST_DESCRIPTION: &'static str = "testing testing";
+
+        let test_description_os_string = OsString::from(TEST_DESCRIPTION);
+        let test_description_bytes = test_description_os_string
+            .encode_wide()
+            .collect::<Vec<u16>>();
+
+        let mut interface_description = [0u16; 256];
+        (&mut interface_description[..test_description_bytes.len()]).copy_from_slice(
+            &test_description_os_string
+                .encode_wide()
+                .collect::<Vec<u16>>(),
+        );
+
+        let mut raw_interface_list = WLAN_INTERFACE_INFO_LIST {
+            dwNumberOfItems: 1,
+            dwIndex: 0,
+            InterfaceInfo: [WLAN_INTERFACE_INFO {
+                strInterfaceDescription: interface_description,
+                ..Default::default()
+            }],
+        };
+
+        let interface_list =
+            ManuallyDrop::new(unsafe { WlanInterfaces::from_raw(&mut raw_interface_list) });
+
+        let first_interface = interface_list
+            .iter()
+            .next()
+            .expect("Failed to get first interface");
+
+        let found_description = first_interface
+            .description()
+            .expect("Interface description was malformed");
+
+        assert_eq!(
+            test_description_os_string,
+            found_description,
+            "Expected interface description of '{}' did not match found interface description of '{}'",
+            test_description_os_string.to_string_lossy().to_string(),
+            found_description.to_string_lossy().to_string()
+        );
     }
 }
