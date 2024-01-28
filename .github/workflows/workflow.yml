@@ -1,0 +1,36 @@
+name: test
+
+on:
+  push:
+    branches: [ main ]
+
+
+jobs:
+  tests:
+    strategy:
+      matrix:
+        target: [x86_64-pc-windows-msvc, i686-pc-windows-msvc]
+
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Rust toolchains
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install Clippy
+        run: rustup component add clippy
+
+      - name: Cargo Check
+        run: cargo check
+
+      - name: Cargo Build
+        run: cargo build --target ${{ matrix.target }}
+
+      - name: Cargo Test
+        run: cargo test --target ${{ matrix.target }}
+
+      - name: Cargo Clippy
+        run: cargo clippy
