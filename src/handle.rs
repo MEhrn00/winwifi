@@ -1,8 +1,7 @@
 use windows::Win32::{
     Foundation::{HANDLE, INVALID_HANDLE_VALUE, WIN32_ERROR},
     NetworkManagement::WiFi::{
-        WlanCloseHandle, WlanEnumInterfaces, WlanOpenHandle, WLAN_API_VERSION_1_0,
-        WLAN_API_VERSION_2_0,
+        WlanCloseHandle, WlanOpenHandle, WLAN_API_VERSION_1_0, WLAN_API_VERSION_2_0,
     },
 };
 
@@ -30,13 +29,21 @@ impl Into<u32> for WlanApiVersion {
 }
 
 /// Object for interacting with the Windows WLAN subsystem
-pub struct WlanHandle {
-    handle: HANDLE,
-}
+#[repr(transparent)]
+pub struct WlanHandle(HANDLE);
 
 impl WlanHandle {
     pub fn new() -> Result<WlanHandle, WinWifiError> {
         Self::with_api_version(WlanApiVersion::ApiVersion2)
+    }
+
+    #[allow(unused)]
+    pub(crate) const fn new_invalid() -> WlanHandle {
+        Self(INVALID_HANDLE_VALUE)
+    }
+
+    pub(crate) const unsafe fn as_ptr(&self) -> *const HANDLE {
+        &self.0
     }
 
     pub fn with_api_version(version: WlanApiVersion) -> Result<WlanHandle, WinWifiError> {
@@ -48,20 +55,18 @@ impl WlanHandle {
         })
         .ok()?;
 
-        Ok(WlanHandle { handle })
+        Ok(WlanHandle(handle))
     }
 
     pub fn interfaces(&self) -> Result<WlanInterfaces, WinWifiError> {
-        let mut interface_list_ptr = std::ptr::null_mut();
-        WIN32_ERROR(unsafe { WlanEnumInterfaces(self.handle, None, &mut interface_list_ptr) })
-            .ok()?;
-
-        Ok(unsafe { WlanInterfaces::from_raw(interface_list_ptr) })
+        WlanInterfaces::new(self)
     }
 }
 
 impl Drop for WlanHandle {
     fn drop(&mut self) {
-        unsafe { WlanCloseHandle(self.handle, None) };
+        if !self.0.is_invalid() {
+            unsafe { WlanCloseHandle(self.0, None) };
+        }
     }
 }
