@@ -58,8 +58,8 @@ impl WlanHandle {
         Ok(WlanHandle(handle))
     }
 
-    pub fn interfaces(&self) -> Result<WlanInterfaces, WinWifiError> {
-        WlanInterfaces::new(self)
+    pub fn into_interfaces(self) -> Result<WlanInterfaces, WinWifiError> {
+        WlanInterfaces::with_handle(self)
     }
 }
 
