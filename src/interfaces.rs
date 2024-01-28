@@ -397,11 +397,9 @@ mod tests {
 
         let test_guid_ref = GuidRef::from(&TEST_GUID);
         assert_eq!(
-            interface_guid,
-            TEST_GUID,
+            interface_guid, TEST_GUID,
             "Expected GUID value of '{}' did not match found GUID value of '{}'",
-            test_guid_ref,
-            interface_guid
+            test_guid_ref, interface_guid
         );
     }
 
