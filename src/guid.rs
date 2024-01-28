@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{fmt::Display, marker::PhantomData};
 
 use windows::core::GUID;
 
@@ -31,8 +31,8 @@ impl<'a> From<&'a GUID> for GuidRef<'a> {
     }
 }
 
-impl<'a> ToString for GuidRef<'_> {
-    fn to_string(&self) -> String {
+impl<'a> Display for GuidRef<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe {
             let mut clock_seq: [u8; 2] = Default::default();
             let mut node: [u8; 8] = Default::default();
@@ -41,7 +41,8 @@ impl<'a> ToString for GuidRef<'_> {
             clock_seq.clone_from_slice(&(*self.guid).data4[..2]);
             (&mut node[2..]).clone_from_slice(&(*self.guid).data4[2..]);
 
-            format!(
+            write!(
+                f,
                 "{:x}-{:x}-{:x}-{:x}-{:x}",
                 (*self.guid).data1,
                 (*self.guid).data2,
