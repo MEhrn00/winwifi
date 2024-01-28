@@ -400,15 +400,15 @@ mod tests {
             interface_guid,
             TEST_GUID,
             "Expected GUID value of '{}' did not match found GUID value of '{}'",
-            test_guid_ref.to_string(),
-            interface_guid.to_string()
+            test_guid_ref,
+            interface_guid
         );
     }
 
     /// Checks for a correct interface description
     #[test]
     fn correct_interface_description() {
-        const TEST_DESCRIPTION: &'static str = "testing testing";
+        const TEST_DESCRIPTION: &str = "testing testing";
 
         let test_description_os_string = OsString::from(TEST_DESCRIPTION);
         let test_description_bytes = test_description_os_string
@@ -416,7 +416,7 @@ mod tests {
             .collect::<Vec<u16>>();
 
         let mut interface_description = [0u16; 256];
-        (&mut interface_description[..test_description_bytes.len()]).copy_from_slice(
+        interface_description[..test_description_bytes.len()].copy_from_slice(
             &test_description_os_string
                 .encode_wide()
                 .collect::<Vec<u16>>(),
@@ -449,8 +449,8 @@ mod tests {
             test_description_os_string,
             found_description,
             "Expected interface description of '{}' did not match found interface description of '{}'",
-            test_description_os_string.to_string_lossy().to_string(),
-            found_description.to_string_lossy().to_string()
+            test_description_os_string.to_string_lossy(),
+            found_description.to_string_lossy()
         );
     }
 }

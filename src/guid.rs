@@ -58,7 +58,7 @@ mod tests {
     use super::*;
     #[test]
     fn to_string() {
-        const TEST_GUID_STRING: &'static str = "12345678-1234-1234-1122-334455667788";
+        const TEST_GUID_STRING: &str = "12345678-1234-1234-1122-334455667788";
 
         let guid = GUID::from_values(
             0x12345678,

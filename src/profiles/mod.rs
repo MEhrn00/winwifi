@@ -78,7 +78,7 @@ impl<'interfaces, 'handle: 'interfaces> WlanInterfaceProfiles<'interfaces, 'hand
         'interfaces: 'profiles,
     {
         WlanInterfaceProfilesIterator {
-            interface: &self.interface,
+            interface: self.interface,
             item_count: self.len(),
             index: 0,
             profiles_list_ptr: self.profile_list_ptr,
