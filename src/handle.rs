@@ -19,11 +19,11 @@ pub enum WlanApiVersion {
     ApiVersion2 = WLAN_API_VERSION_2_0,
 }
 
-impl Into<u32> for WlanApiVersion {
-    fn into(self) -> u32 {
-        match self {
-            Self::ApiVersion1 => WLAN_API_VERSION_1_0,
-            Self::ApiVersion2 => WLAN_API_VERSION_2_0,
+impl From<WlanApiVersion> for u32 {
+    fn from(val: WlanApiVersion) -> Self {
+        match val {
+            WlanApiVersion::ApiVersion1 => WLAN_API_VERSION_1_0,
+            WlanApiVersion::ApiVersion2 => WLAN_API_VERSION_2_0,
         }
     }
 }

@@ -55,6 +55,10 @@ impl<'handle: 'interfaces, 'interfaces> WlanInterfaceProfiles<'handle, 'interfac
         unsafe { *self.profile_list_ptr.as_ptr() }.dwNumberOfItems as usize
     }
 
+    pub fn is_empty(&self) -> bool {
+        unsafe { *self.profile_list_ptr.as_ptr() }.dwNumberOfItems == 0
+    }
+
     pub fn iter<'profiles>(
         &'profiles self,
     ) -> WlanInterfaceProfilesIterator<'handle, 'interfaces, 'profiles>
@@ -81,10 +85,8 @@ impl<'handle: 'interfaces, 'interfaces: 'profiles, 'profiles> Iterator
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.profiles_list.len() {
             let next_profile_ptr = unsafe {
-                std::ptr::addr_of!(
-                    (*(*self).profiles_list.profile_list_ptr.as_ptr()).ProfileInfo[0]
-                )
-                .add(1)
+                std::ptr::addr_of!((*self.profiles_list.profile_list_ptr.as_ptr()).ProfileInfo[0])
+                    .add(1)
             };
 
             let profile = WlanInterfaceProfile {
@@ -111,7 +113,9 @@ impl<'handle: 'interfaces, 'interfaces: 'profiles, 'profiles> ExactSizeIterator
 }
 
 pub struct WlanInterfaceProfile<'handle: 'interfaces, 'interfaces: 'profiles, 'profiles> {
+    #[allow(unused)]
     interface: &'profiles WlanInterface<'handle, 'interfaces>,
+
     profile_ptr: *const WLAN_PROFILE_INFO,
     _profile_marker: PhantomData<&'profiles WLAN_PROFILE_INFO>,
 }

@@ -97,6 +97,10 @@ impl<'handle> WlanInterfaces<'handle> {
         unsafe { *self.interface_list_ptr.as_ptr() }.dwNumberOfItems as usize
     }
 
+    pub fn is_empty(&self) -> bool {
+        unsafe { *self.interface_list_ptr.as_ptr() }.dwNumberOfItems == 0
+    }
+
     /// Returns an iterator over the wireless interfaces
     pub fn iter<'interfaces>(&'interfaces self) -> WlanInterfacesIterator<'handle, 'interfaces>
     where
@@ -109,7 +113,7 @@ impl<'handle> WlanInterfaces<'handle> {
     }
 }
 
-impl<'handle> Drop for WlanInterfaces<'_> {
+impl Drop for WlanInterfaces<'_> {
     fn drop(&mut self) {
         unsafe { WlanFreeMemory(self.interface_list_ptr.as_ptr().cast()) };
     }
@@ -128,7 +132,7 @@ impl<'handle: 'interfaces, 'interfaces> Iterator for WlanInterfacesIterator<'han
         if self.index < self.interface_list.len() {
             let next_interface_ptr = unsafe {
                 std::ptr::addr_of!(
-                    (*(*self).interface_list.interface_list_ptr.as_ptr()).InterfaceInfo[0]
+                    (*self.interface_list.interface_list_ptr.as_ptr()).InterfaceInfo[0]
                 )
                 .add(1)
             };

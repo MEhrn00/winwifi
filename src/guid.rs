@@ -11,6 +11,9 @@ pub struct GuidRef<'a> {
 }
 
 impl<'a> GuidRef<'a> {
+    /// # Safety
+    ///
+    /// Pointer validation is not done. Caller has to ensure that a valid pointer to a GUID is passed in
     pub unsafe fn from_ptr(guid: *const GUID) -> GuidRef<'a> {
         GuidRef {
             guid,
@@ -25,7 +28,7 @@ impl<'a> GuidRef<'a> {
 
 impl<'a> std::cmp::PartialEq<GUID> for GuidRef<'a> {
     fn eq(&self, other: &GUID) -> bool {
-        return unsafe { &(*self.guid) } == other;
+        unsafe { &(*self.guid) == other }
     }
 }
 
@@ -38,15 +41,15 @@ impl<'a> From<&'a GUID> for GuidRef<'a> {
     }
 }
 
-impl<'a> Display for GuidRef<'_> {
+impl Display for GuidRef<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         unsafe {
             let mut clock_seq: [u8; 2] = Default::default();
             let mut node: [u8; 8] = Default::default();
 
-            // Copy out the clock_seq and node from the guid without needing to allocate it
+            // Copy out the clock_seq and node from the guid without unnecessarily allocating a copy of it
             clock_seq.clone_from_slice(&(*self.guid).data4[..2]);
-            (&mut node[2..]).clone_from_slice(&(*self.guid).data4[2..]);
+            node[2..].clone_from_slice(&(*self.guid).data4[2..]);
 
             write!(
                 f,
