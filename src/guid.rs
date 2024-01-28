@@ -11,11 +11,15 @@ pub struct GuidRef<'a> {
 }
 
 impl<'a> GuidRef<'a> {
-    pub fn from_ptr(guid: *const GUID) -> GuidRef<'a> {
+    pub unsafe fn from_ptr(guid: *const GUID) -> GuidRef<'a> {
         GuidRef {
             guid,
             _marker: PhantomData,
         }
+    }
+
+    pub(crate) fn as_ptr(&self) -> *const GUID {
+        self.guid
     }
 }
 
@@ -27,7 +31,10 @@ impl<'a> std::cmp::PartialEq<GUID> for GuidRef<'a> {
 
 impl<'a> From<&'a GUID> for GuidRef<'a> {
     fn from(value: &'a GUID) -> Self {
-        Self::from_ptr(value)
+        GuidRef {
+            guid: value,
+            _marker: PhantomData,
+        }
     }
 }
 
