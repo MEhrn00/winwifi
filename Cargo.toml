@@ -21,11 +21,15 @@ license.workspace = true
 
 
 [dependencies]
-serde = "1.0.196"
 thiserror = "1.0.56"
 
 [dependencies.quick-xml]
 version = "0.31.0"
+features = ["serialize"]
+
+[dependencies.serde]
+version = "1.0"
+features = ["derive"]
 
 [dependencies.windows]
 version = "0.52.0"
