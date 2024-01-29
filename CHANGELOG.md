@@ -2,6 +2,12 @@
 
 List project changes
 
+## [0.1.0] - 2024-01-28
+
+### Changed
+
+- Change versioning tag back to 0.1.0 to follow [semver](https://semver.org/#how-should-i-deal-with-revisions-in-the-0yz-initial-development-phase) guidelines
+
 ## [0.0.1] - 2024-01-28
 
 ### Added
@@ -22,4 +28,5 @@ List project changes
 
 - wlan DLL linkage in tests to work with CI
 
+[0.1.0]: https://github.com/MEhrn00/winwifi/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/MEhrn00/winwifi/releases/tag/v0.0.1
