@@ -78,7 +78,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      CLIPPY_TARGET: x86_64-pc-windows-gnu
+      TARGET: x86_64-pc-windows-gnu
 
     steps:
       - name: Checkout code
@@ -87,8 +87,5 @@ jobs:
       - name: Install Clippy
         run: rustup component add clippy
 
-      - name: Cargo Check
-        run: cargo check
-
       - name: Cargo Clippy
-        run: cargo clippy --all-features --target ${CLIPPY_TARGET} --workspace --locked -- -D warnings
+        run: cargo clippy --all-features --target ${TARGET} --workspace --locked -- -D warnings
