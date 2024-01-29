@@ -3,7 +3,7 @@ members = ["winwifi-bin"]
 default-members = [".", "winwifi-bin"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.0-rc1"
 edition = "2021"
 authors = ["Matt Ehrnschwender (@M_alphaaa)"]
 repository = "https://github.com/MEhrn00/winwifi"
