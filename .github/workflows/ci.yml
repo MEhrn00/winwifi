@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+
+          - os: ubuntu-latest
+            target: x86_64-pc-windows-gnu
+          - os: ubuntu-latest
+            target: i686-pc-windows-gnu
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cargo Build
+        run: cargo build --color always --target ${{ matrix.target }}
+
+  test:
+    needs: build
+    name: Test
+    strategy:
+      matrix:
+        target: [x86_64-pc-windows-msvc, i686-pc-windows-msvc]
+
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cargo Test
+        run: cargo test --color always --target ${{ matrix.target }}
+
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+
+      - name: Run cargo fmt
+        run: cargo fmt -- --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+
+    env:
+      CLIPPY_TARGET: x86_64-pc-windows-gnu
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Clippy
+        run: rustup component add clippy
+
+      - name: Cargo Check
+        run: cargo check
+
+      - name: Cargo Clippy
+        run: cargo clippy --all-features --target ${CLIPPY_TARGET} --workspace --locked -- -D warnings
