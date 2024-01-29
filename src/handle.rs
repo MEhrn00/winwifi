@@ -1,8 +1,6 @@
 use windows::Win32::{
     Foundation::{HANDLE, INVALID_HANDLE_VALUE, WIN32_ERROR},
-    NetworkManagement::WiFi::{
-        WlanCloseHandle, WlanOpenHandle, WLAN_API_VERSION_1_0, WLAN_API_VERSION_2_0,
-    },
+    NetworkManagement::WiFi::{WlanOpenHandle, WLAN_API_VERSION_1_0, WLAN_API_VERSION_2_0},
 };
 
 use crate::{errors::WinWifiError, interfaces::WlanInterfaces};
@@ -65,8 +63,9 @@ impl WlanHandle {
 
 impl Drop for WlanHandle {
     fn drop(&mut self) {
-        if !self.0.is_invalid() {
-            unsafe { WlanCloseHandle(self.0, None) };
-        }
+        #[cfg(not(test))]
+        unsafe {
+            windows::Win32::NetworkManagement::WiFi::WlanCloseHandle(self.0, None)
+        };
     }
 }

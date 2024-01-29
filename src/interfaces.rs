@@ -239,9 +239,10 @@ impl<'interfaces, 'handle: 'interfaces> WlanInterface<'interfaces, 'handle> {
 mod tests {
     use std::{mem::ManuallyDrop, os::windows::ffi::OsStrExt};
 
+    use super::*;
     use windows::core::GUID;
 
-    use super::*;
+    use crate::{create_test_handle, create_test_interfaces};
 
     /// Tests that the return value from `WlanInterfaces::len()` matches the correct length
     #[test]
@@ -255,13 +256,11 @@ mod tests {
             InterfaceInfo: [WLAN_INTERFACE_INFO::default()],
         };
 
-        let handle = WlanHandle::new_invalid();
+        let handle = create_test_handle!();
 
         // Create the interface list. Ensure that the list doesn't get Dropped since
         // the interface list is being allocated on the stack and not from the Windows API
-        let interface_list = ManuallyDrop::new(unsafe {
-            WlanInterfaces::from_raw_parts(handle, &mut raw_interface_list)
-        });
+        let interface_list = create_test_interfaces!(handle, &mut raw_interface_list);
 
         // Make sure the returned length matches the correct length
         assert_eq!(
@@ -286,12 +285,8 @@ mod tests {
         // Pointer to the mock interface
         let test_interface_ptr = std::ptr::addr_of!(raw_interface_list.InterfaceInfo[0]);
 
-        let handle = WlanHandle::new_invalid();
-
-        // Create an interface list
-        let interface_list = ManuallyDrop::new(unsafe {
-            WlanInterfaces::from_raw_parts(handle, &mut raw_interface_list)
-        });
+        let handle = create_test_handle!();
+        let interface_list = create_test_interfaces!(handle, &mut raw_interface_list);
 
         // Get the first interface in the interface list
         let interface_list_first = interface_list
@@ -319,12 +314,8 @@ mod tests {
             InterfaceInfo: [WLAN_INTERFACE_INFO::default()],
         };
 
-        let handle = WlanHandle::new_invalid();
-
-        // Interface list
-        let interface_list = ManuallyDrop::new(unsafe {
-            WlanInterfaces::from_raw_parts(handle, &mut raw_interface_list)
-        });
+        let handle = create_test_handle!();
+        let interface_list = create_test_interfaces!(handle, &mut raw_interface_list);
 
         let mut list_iter = interface_list.iter();
 
@@ -350,11 +341,8 @@ mod tests {
             InterfaceInfo: [WLAN_INTERFACE_INFO::default()],
         };
 
-        let handle = WlanHandle::new_invalid();
-
-        let interface_list = ManuallyDrop::new(unsafe {
-            WlanInterfaces::from_raw_parts(handle, &mut raw_interface_list)
-        });
+        let handle = create_test_handle!();
+        let interface_list = create_test_interfaces!(handle, &mut raw_interface_list);
 
         // There should not be anything in the list
         assert!(
@@ -382,11 +370,8 @@ mod tests {
             }],
         };
 
-        let handle = WlanHandle::new_invalid();
-
-        let interface_list = ManuallyDrop::new(unsafe {
-            WlanInterfaces::from_raw_parts(handle, &mut raw_interface_list)
-        });
+        let handle = create_test_handle!();
+        let interface_list = create_test_interfaces!(handle, &mut raw_interface_list);
 
         let first_interface = interface_list
             .iter()
@@ -429,10 +414,8 @@ mod tests {
             }],
         };
 
-        let handle = WlanHandle::new_invalid();
-        let interface_list = ManuallyDrop::new(unsafe {
-            WlanInterfaces::from_raw_parts(handle, &mut raw_interface_list)
-        });
+        let handle = create_test_handle!();
+        let interface_list = create_test_interfaces!(handle, &mut raw_interface_list);
 
         let first_interface = interface_list
             .iter()
