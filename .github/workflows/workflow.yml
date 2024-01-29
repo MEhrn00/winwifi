@@ -24,7 +24,7 @@ jobs:
         run: cargo build --target ${{ matrix.target }}
 
       - name: Cargo Test
-        run: cargo test --target ${{ matrix.target }}
+        run: cargo test --color always --target ${{ matrix.target }}
 
   lint:
     runs-on: windows-latest
