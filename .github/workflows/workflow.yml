@@ -1,4 +1,4 @@
-name: test
+name: Main Actions
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
 
 
 jobs:
-  tests:
+  test:
     strategy:
       matrix:
         target: [x86_64-pc-windows-msvc, i686-pc-windows-msvc]
@@ -25,3 +25,19 @@ jobs:
 
       - name: Cargo Test
         run: cargo test --target ${{ matrix.target }}
+
+  lint:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Clippy
+        run: rustup component add clippy
+
+      - name: Cargo Check
+        run: cargo check
+
+      - name: Cargo Clippy
+        run: cargo clippy
