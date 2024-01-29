@@ -19,6 +19,9 @@ repository.workspace = true
 description.workspace = true
 license.workspace = true
 
+[package.metadata.docs.rs]
+targets = ["x86_64-pc-windows-gnu", "i686-pc-windows-gnu"]
+
 
 [dependencies]
 thiserror = "1.0.56"
