@@ -43,7 +43,7 @@ impl Display for GuidRef<'_> {
 
         write!(
             f,
-            "{:x}-{:x}-{:x}-{:x}-{:x}",
+            "{:08x}-{:04x}-{:04x}-{:04x}-{:012x}",
             self.0.data1,
             self.0.data2,
             self.0.data3,
@@ -58,11 +58,11 @@ mod tests {
     use super::*;
     #[test]
     fn to_string() {
-        const TEST_GUID_STRING: &str = "12345678-1234-1234-1122-334455667788";
+        const TEST_GUID_STRING: &str = "12345678-0123-1234-1122-334455667788";
 
         let guid = GUID::from_values(
             0x12345678,
-            0x1234,
+            0x0123,
             0x1234,
             [0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88],
         );
